@@ -1,0 +1,134 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Serif+Display&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@layer base {
+  html {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    @apply bg-sand-50 text-sand-900;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-sand-300 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-sand-400;
+  }
+}
+
+@layer components {
+  /* Input styling */
+  .input-field {
+    @apply w-full px-3 py-2 bg-white border border-sand-200 rounded-lg
+           text-sand-900 placeholder-sand-400
+           focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent
+           transition-all duration-200;
+  }
+
+  .input-field-sm {
+    @apply input-field text-sm py-1.5 px-2.5;
+  }
+
+  .input-label {
+    @apply block text-xs font-medium text-sand-600 mb-1 tracking-wide uppercase;
+  }
+
+  /* Section card */
+  .card {
+    @apply bg-white rounded-xl border border-sand-200 shadow-sm;
+  }
+
+  .card-header {
+    @apply px-5 py-4 border-b border-sand-100 flex items-center justify-between;
+  }
+
+  .card-body {
+    @apply px-5 py-4;
+  }
+
+  /* Metric display */
+  .metric-card {
+    @apply rounded-lg border p-3 transition-all duration-200;
+  }
+
+  .metric-value {
+    @apply font-mono text-lg font-medium leading-tight;
+  }
+
+  .metric-label {
+    @apply text-xs text-sand-500 mt-0.5;
+  }
+
+  /* Buttons */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg
+           font-medium text-sm transition-all duration-200
+           focus:outline-none focus:ring-2 focus:ring-offset-2;
+  }
+
+  .btn-primary {
+    @apply btn bg-sand-900 text-sand-50 hover:bg-sand-800 focus:ring-sand-500;
+  }
+
+  .btn-secondary {
+    @apply btn bg-white border border-sand-200 text-sand-700 hover:bg-sand-50 focus:ring-sand-300;
+  }
+
+  .btn-accent {
+    @apply btn bg-accent text-white hover:bg-accent-dark focus:ring-accent;
+  }
+
+  .btn-ghost {
+    @apply btn text-sand-600 hover:bg-sand-100 hover:text-sand-800;
+  }
+
+  .btn-danger {
+    @apply btn bg-loss/10 text-loss border border-loss/20 hover:bg-loss/20;
+  }
+
+  .btn-sm {
+    @apply text-xs px-3 py-1.5;
+  }
+
+  /* Tabs */
+  .tab {
+    @apply px-3 py-2 text-sm font-medium text-sand-500 border-b-2 border-transparent
+           hover:text-sand-700 hover:border-sand-300 transition-all duration-200 cursor-pointer;
+  }
+
+  .tab-active {
+    @apply text-sand-900 border-sand-900;
+  }
+
+  /* Manual override indicator */
+  .input-overridden {
+    @apply ring-2 ring-loss/40 border-loss/50;
+  }
+  .input-overridden:focus {
+    @apply ring-2 ring-loss/60 border-loss/60;
+  }
+}
+
+/* Number input — hide spinners */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
