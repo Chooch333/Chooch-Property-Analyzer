@@ -179,9 +179,9 @@ export function createDefaultAnalysis(): Omit<Analysis, "id" | "created_at" | "u
     total_sqft: null,
     year_built: null,
 
-    zoning_district: "d8",
-    lot_area: 5000,
-    zoning_stories: 2,
+    zoning_district: "",
+    lot_area: 0,
+    zoning_stories: 0,
     zoning_max_units: null,
     zoning_binding_constraint: null,
 

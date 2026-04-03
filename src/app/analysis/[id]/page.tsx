@@ -240,8 +240,8 @@ export default function AnalysisPage({ params }: { params: { id: string } }) {
           </div>
         )}
 
-        {/* ZONING TAB */}
-        {tab === "zoning" && (
+        {/* ZONING TAB — always mounted so local state persists across tab switches */}
+        <div style={{ display: tab === "zoning" ? "block" : "none" }}>
           <ZoningTab
             lotArea={analysis.lot_area}
             districtId={analysis.zoning_district}
@@ -252,7 +252,7 @@ export default function AnalysisPage({ params }: { params: { id: string } }) {
             onApplyToFinancial={handleZoningApply}
             onPropertyDataReceived={handlePropertyData}
           />
-        )}
+        </div>
 
         {/* OVERVIEW TAB */}
         {tab === "overview" && (

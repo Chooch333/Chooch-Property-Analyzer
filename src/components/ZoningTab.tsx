@@ -51,7 +51,7 @@ export default function ZoningTab({
   const [showDistrictRef, setShowDistrictRef] = useState(false);
   const [expandedDistrict, setExpandedDistrict] = useState<string | null>(null);
 
-  const district = DISTRICTS.find((d) => d.id === districtId);
+  const district = districtId ? DISTRICTS.find((d) => d.id === districtId) : null;
   const ratioDistricts = DISTRICTS.filter((d) => d.far !== null);
 
   // ---- Address Search ----
@@ -60,6 +60,12 @@ export default function ZoningTab({
     setSearching(true);
     setSearchError(null);
     setSearchResult(null);
+
+    // FIX #5: Reset all previous values on new lookup
+    setCalcResult(null);
+    onLotAreaChange(0);
+    onDistrictChange("");
+    onStoriesChange(0);
 
     try {
       const res = await fetch(`/api/property?address=${encodeURIComponent(addressInput.trim())}`);
@@ -73,8 +79,8 @@ export default function ZoningTab({
       setSearchResult(data);
 
       // FIX #1: Auto-populate lot area and zoning district into the calculator fields
-      let newDistrictId = districtId;
-      let newLotArea = lotArea;
+      let newDistrictId = "";
+      let newLotArea = 0;
 
       if (data.parcel?.lotAreaSF) {
         newLotArea = data.parcel.lotAreaSF;
@@ -89,7 +95,7 @@ export default function ZoningTab({
         }
       }
 
-      // Push property data to parent for Overview tab auto-fill (fix #3 from previous round)
+      // Push property data to parent for Overview tab auto-fill
       const propertyData: PropertyLookupResult = {
         address: data.parcel?.address || data.geocode?.matchedAddress,
         city: data.parcel?.city || undefined,
@@ -109,13 +115,15 @@ export default function ZoningTab({
       };
       onPropertyDataReceived(propertyData);
 
-      // Auto-run calculation after lookup populates fields
-      const autoResult = calculateZoning({
-        lotArea: newLotArea,
-        districtId: newDistrictId,
-        stories,
-      });
-      setCalcResult(autoResult);
+      // FIX #1: Auto-trigger calculation after lookup populates fields
+      if (newLotArea > 0 && newDistrictId) {
+        const autoResult = calculateZoning({
+          lotArea: newLotArea,
+          districtId: newDistrictId,
+          stories: stories || 2,
+        });
+        setCalcResult(autoResult);
+      }
     } catch (e: any) {
       setSearchError(e.message || "Search failed");
     } finally {
@@ -124,10 +132,9 @@ export default function ZoningTab({
   }
 
   // ---- Calculate (manual trigger) ----
-  // FIX #5: Don't clear results on input change. Only recalculate on explicit action.
-  // FIX #6: Enter key triggers this from any input field.
   function handleCalculate() {
-    const result = calculateZoning({ lotArea, districtId, stories });
+    if (!districtId) return;
+    const result = calculateZoning({ lotArea, districtId, stories: stories || 1 });
     setCalcResult(result);
   }
 
@@ -151,51 +158,57 @@ export default function ZoningTab({
 
   return (
     <div className="space-y-6">
-      {/* Address Search */}
+      {/* Single unified card: Property Lookup → Calculator → Results */}
       <div className="card">
         <div className="card-header">
           <div>
-            <h2 className="font-display text-lg">Property Lookup</h2>
-            <p className="text-xs text-sand-500 mt-0.5">Enter an address to auto-pull lot size and zoning from IndyGIS</p>
+            <h2 className="font-display text-lg">Zoning Feasibility</h2>
+            <p className="text-xs text-sand-500 mt-0.5">Look up an address or enter values manually — Jan 2025 Indianapolis Consolidated Zoning Ordinance</p>
           </div>
+          <button onClick={() => setShowDistrictRef(!showDistrictRef)} className="btn-ghost btn-sm font-mono">
+            {showDistrictRef ? "Hide" : "Show"} District Ref
+          </button>
         </div>
-        <div className="card-body space-y-4">
-          <div className="flex gap-3">
-            <div className="flex-1 relative">
-              <input
-                type="text"
-                value={addressInput}
-                onChange={(e) => setAddressInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAddressSearch()}
-                className="input-field pr-10"
-                placeholder="425 N Arsenal Ave Indianapolis IN 46201"
-              />
-              {searching && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <div className="w-4 h-4 border-2 border-sand-300 border-t-accent rounded-full animate-spin" />
-                </div>
-              )}
+        <div className="card-body space-y-5">
+          {/* Address search */}
+          <div>
+            <label className="input-label">Property Address</label>
+            <div className="flex gap-3">
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  value={addressInput}
+                  onChange={(e) => setAddressInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddressSearch()}
+                  className="input-field pr-10"
+                  placeholder="425 N Arsenal Ave Indianapolis IN 46201"
+                />
+                {searching && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="w-4 h-4 border-2 border-sand-300 border-t-accent rounded-full animate-spin" />
+                  </div>
+                )}
+              </div>
+              <button onClick={handleAddressSearch} disabled={searching || !addressInput.trim()} className="btn-accent whitespace-nowrap">
+                {searching ? "Searching..." : "Look Up"}
+              </button>
             </div>
-            <button onClick={handleAddressSearch} disabled={searching || !addressInput.trim()} className="btn-accent whitespace-nowrap">
-              {searching ? "Searching..." : "Look Up"}
-            </button>
           </div>
 
           {searchError && (
             <div className="p-3 bg-loss/10 border border-loss/20 rounded-lg text-sm text-loss">{searchError}</div>
           )}
 
+          {/* Lookup result summary */}
           {searchResult && (
             <div className="p-4 bg-profit/5 border border-profit/15 rounded-lg space-y-2">
               <div className="flex items-center gap-2 mb-1">
                 <svg className="w-4 h-4 text-profit" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
-                <span className="text-sm font-medium text-profit">Property found — fields auto-populated below</span>
+                <span className="text-sm font-medium text-profit">Property found</span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1 text-sm">
                 <LookupField label="Address" value={searchResult.geocode?.matchedAddress} />
                 <LookupField label="County" value={searchResult.geocode?.county} />
-                <LookupField label="Lot Area" value={searchResult.parcel?.lotAreaSF ? `${searchResult.parcel.lotAreaSF.toLocaleString()} SF` : null} />
-                <LookupField label="Zoning" value={searchResult.zoning?.rawZone} />
                 <LookupField label="Parcel #" value={searchResult.parcel?.parcelNumber || searchResult.parcel?.stateParcelNumber} />
                 {searchResult.parcel?.assessedValue && (
                   <LookupField label="Assessed Value" value={`$${Number(searchResult.parcel.assessedValue).toLocaleString()}`} />
@@ -209,7 +222,7 @@ export default function ZoningTab({
                 if (!match.matched) {
                   return (
                     <div className="mt-2 p-2 bg-accent/10 border border-accent/20 rounded text-xs text-sand-700">
-                      <span className="font-semibold text-accent">Zoning not auto-matched:</span> "{searchResult.zoning.rawZone}" — select the district manually below.
+                      <span className="font-semibold text-accent">Zoning not auto-matched:</span> &ldquo;{searchResult.zoning.rawZone}&rdquo; — select the district manually below.
                     </div>
                   );
                 }
@@ -217,21 +230,11 @@ export default function ZoningTab({
               })()}
             </div>
           )}
-        </div>
-      </div>
 
-      {/* Calculator inputs + Calculate button */}
-      <div className="card">
-        <div className="card-header">
-          <div>
-            <h2 className="font-display text-lg">Zoning Feasibility Calculator</h2>
-            <p className="text-xs text-sand-500 mt-0.5">Jan 2025 Indianapolis Consolidated Zoning Ordinance</p>
-          </div>
-          <button onClick={() => setShowDistrictRef(!showDistrictRef)} className="btn-ghost btn-sm font-mono">
-            {showDistrictRef ? "Hide" : "Show"} District Ref
-          </button>
-        </div>
-        <div className="card-body space-y-5">
+          {/* Divider */}
+          <div className="border-t border-sand-200" />
+
+          {/* Calculator inputs */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="input-label">Lot Area (SF)</label>
@@ -241,7 +244,7 @@ export default function ZoningTab({
                 onChange={(e) => onLotAreaChange(Number(e.target.value) || 0)}
                 onKeyDown={handleCalcKeyDown}
                 className="input-field font-mono"
-                placeholder="5000"
+                placeholder="e.g. 5000"
               />
             </div>
             <div>
@@ -252,6 +255,7 @@ export default function ZoningTab({
                 onKeyDown={handleCalcKeyDown}
                 className="input-field"
               >
+                <option value="">— Select district —</option>
                 <optgroup label="Ratio-Based (D-6+)">
                   {ratioDistricts.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </optgroup>
@@ -268,9 +272,10 @@ export default function ZoningTab({
               <input
                 type="number" min={1} max={30}
                 value={stories || ""}
-                onChange={(e) => onStoriesChange(Number(e.target.value) || 1)}
+                onChange={(e) => onStoriesChange(Number(e.target.value) || 0)}
                 onKeyDown={handleCalcKeyDown}
                 className="input-field font-mono"
+                placeholder="e.g. 2"
               />
             </div>
           </div>
@@ -294,76 +299,77 @@ export default function ZoningTab({
             </div>
           )}
 
-          <button onClick={handleCalculate} className="btn-primary w-full py-3 text-base">
+          <button onClick={handleCalculate} disabled={!districtId} className="btn-primary w-full py-3 text-base">
             Calculate Max Units
           </button>
+
+          {/* Results inline */}
+          {calcResult && (
+            <>
+              <div className="border-t border-sand-200" />
+
+              <div className="flex items-center justify-between">
+                <h3 className="font-display text-base">Unit Analysis</h3>
+                <button onClick={handleApply} className="btn-accent btn-sm">
+                  Apply {calcResult.maxUnits} units → Financial Analysis
+                </button>
+              </div>
+
+              <div className="text-center py-6 rounded-xl bg-sand-50 border border-sand-100">
+                <div className="text-xs font-mono text-sand-500 tracking-wider mb-2">ESTIMATED MAX UNITS</div>
+                <div className={`font-mono text-6xl font-bold leading-none ${calcResult.maxUnits > 0 ? "text-profit" : "text-loss"}`}>
+                  {calcResult.maxUnits}
+                </div>
+                <div className="text-xs font-mono text-accent mt-2">binding constraint: {calcResult.bindingConstraint}</div>
+              </div>
+
+              {calcResult.bindingConstraint !== "lot-based" && calcResult.bindingConstraint !== "not-permitted" && (
+                <div className="rounded-lg border border-sand-200 overflow-hidden">
+                  <CalcRow label="Applicable FAR" value={calcResult.applicableFAR.toFixed(2)} />
+                  <CalcRow label="Max Floor Area (FAR × Lot)" value={`${calcResult.maxFloorArea.toLocaleString()} SF`} />
+                  <CalcRow label="Max Footprint (FAR)" value={`${calcResult.maxFootprintByFAR.toLocaleString()} SF`} />
+                  <CalcRow label="Max Footprint (LSR)" value={`${calcResult.maxFootprintByLSR > 0 ? calcResult.maxFootprintByLSR.toLocaleString() : "N/A"} SF`} />
+                  <CalcRow label="Effective Floor Area" value={`${calcResult.effectiveFloorArea.toLocaleString()} SF`} />
+                  <CalcRow label="Min Unit Size" value="660 SF" />
+                  <CalcRow label="Max Units" value={calcResult.maxUnits.toString()} highlight />
+                  {calcResult.parking !== null && (
+                    <CalcRow label={`Parking (TCR ${calcResult.district.tcr})`} value={`${calcResult.parking} spaces (~${calcResult.parkingSF?.toLocaleString()} SF)`} />
+                  )}
+                </div>
+              )}
+
+              {calcResult.district?.tieredFAR && (
+                <div className="p-4 bg-sand-50 rounded-lg">
+                  <div className="text-xs font-mono text-sand-500 tracking-wider mb-2">FAR TIERS — {calcResult.district.name}</div>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-sm">
+                    <FARTier label="1-3 fl" value={calcResult.district.tieredFAR.floors1to3} active={stories <= 3} />
+                    <FARTier label="4-5 fl" value={calcResult.district.tieredFAR.floors4to5} active={stories >= 4 && stories <= 5} />
+                    {calcResult.district.tieredFAR.floors6to11 !== undefined && <FARTier label="6-11 fl" value={calcResult.district.tieredFAR.floors6to11} active={stories >= 6 && stories <= 11} />}
+                    {calcResult.district.tieredFAR.floors12to23 !== undefined && <FARTier label="12-23 fl" value={calcResult.district.tieredFAR.floors12to23} active={stories >= 12 && stories <= 23} />}
+                    {calcResult.district.tieredFAR.floors24plus !== undefined && <FARTier label="24+ fl" value={calcResult.district.tieredFAR.floors24plus} active={stories >= 24} />}
+                  </div>
+                </div>
+              )}
+
+              {calcResult.warnings.length > 0 && (
+                <div className="space-y-2">
+                  {calcResult.warnings.map((w, i) => (
+                    <div key={i} className="p-3 bg-accent/5 border border-accent/15 rounded-lg text-sm text-sand-700">
+                      <span className="font-semibold text-accent">Note:</span> {w}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {calcResult.district?.notes && (
+                <div className="p-3 bg-sand-50 rounded-lg text-xs text-sand-600 leading-relaxed">
+                  <span className="font-semibold text-sand-700">District notes:</span> {calcResult.district.notes}
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
-
-      {/* Results — persist until explicitly recalculated */}
-      {calcResult && (
-        <div className="card animate-fade-in">
-          <div className="card-header">
-            <h2 className="font-display text-lg">Results</h2>
-            <button onClick={handleApply} className="btn-accent btn-sm">
-              Apply {calcResult.maxUnits} units → Financial Analysis
-            </button>
-          </div>
-          <div className="card-body space-y-5">
-            <div className="text-center py-6 rounded-xl bg-sand-50 border border-sand-100">
-              <div className="text-xs font-mono text-sand-500 tracking-wider mb-2">ESTIMATED MAX UNITS</div>
-              <div className={`font-mono text-6xl font-bold leading-none ${calcResult.maxUnits > 0 ? "text-profit" : "text-loss"}`}>
-                {calcResult.maxUnits}
-              </div>
-              <div className="text-xs font-mono text-accent mt-2">binding constraint: {calcResult.bindingConstraint}</div>
-            </div>
-
-            {calcResult.bindingConstraint !== "lot-based" && calcResult.bindingConstraint !== "not-permitted" && (
-              <div className="rounded-lg border border-sand-200 overflow-hidden">
-                <CalcRow label="Applicable FAR" value={calcResult.applicableFAR.toFixed(2)} />
-                <CalcRow label="Max Floor Area (FAR × Lot)" value={`${calcResult.maxFloorArea.toLocaleString()} SF`} />
-                <CalcRow label="Max Footprint (FAR)" value={`${calcResult.maxFootprintByFAR.toLocaleString()} SF`} />
-                <CalcRow label="Max Footprint (LSR)" value={`${calcResult.maxFootprintByLSR > 0 ? calcResult.maxFootprintByLSR.toLocaleString() : "N/A"} SF`} />
-                <CalcRow label="Effective Floor Area" value={`${calcResult.effectiveFloorArea.toLocaleString()} SF`} />
-                <CalcRow label="Min Unit Size" value="660 SF" />
-                <CalcRow label="Max Units" value={calcResult.maxUnits.toString()} highlight />
-                {calcResult.parking !== null && (
-                  <CalcRow label={`Parking (TCR ${calcResult.district.tcr})`} value={`${calcResult.parking} spaces (~${calcResult.parkingSF?.toLocaleString()} SF)`} />
-                )}
-              </div>
-            )}
-
-            {calcResult.district?.tieredFAR && (
-              <div className="p-4 bg-sand-50 rounded-lg">
-                <div className="text-xs font-mono text-sand-500 tracking-wider mb-2">FAR TIERS — {calcResult.district.name}</div>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-sm">
-                  <FARTier label="1-3 fl" value={calcResult.district.tieredFAR.floors1to3} active={stories <= 3} />
-                  <FARTier label="4-5 fl" value={calcResult.district.tieredFAR.floors4to5} active={stories >= 4 && stories <= 5} />
-                  {calcResult.district.tieredFAR.floors6to11 !== undefined && <FARTier label="6-11 fl" value={calcResult.district.tieredFAR.floors6to11} active={stories >= 6 && stories <= 11} />}
-                  {calcResult.district.tieredFAR.floors12to23 !== undefined && <FARTier label="12-23 fl" value={calcResult.district.tieredFAR.floors12to23} active={stories >= 12 && stories <= 23} />}
-                  {calcResult.district.tieredFAR.floors24plus !== undefined && <FARTier label="24+ fl" value={calcResult.district.tieredFAR.floors24plus} active={stories >= 24} />}
-                </div>
-              </div>
-            )}
-
-            {calcResult.warnings.length > 0 && (
-              <div className="space-y-2">
-                {calcResult.warnings.map((w, i) => (
-                  <div key={i} className="p-3 bg-accent/5 border border-accent/15 rounded-lg text-sm text-sand-700">
-                    <span className="font-semibold text-accent">Note:</span> {w}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {calcResult.district?.notes && (
-              <div className="p-3 bg-sand-50 rounded-lg text-xs text-sand-600 leading-relaxed">
-                <span className="font-semibold text-sand-700">District notes:</span> {calcResult.district.notes}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* District Reference */}
       {showDistrictRef && (
