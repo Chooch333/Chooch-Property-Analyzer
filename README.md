@@ -1,3 +1,4 @@
+<!-- test commit from Claude Code -->
 # Indy Property Analyzer
 
 Indianapolis residential investment property analysis tool. **Zoning feasibility first** — determine how many units a lot can support under the Jan 2025 Consolidated Zoning Ordinance, then run full financial analysis on the deal.
